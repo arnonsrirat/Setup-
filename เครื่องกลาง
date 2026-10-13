@@ -1,0 +1,57 @@
+local modem = peripheral.find("modem")
+
+rednet.open(peripheral.getName(modem))
+
+local signs = {
+    quantumcraft = 8,
+	  treefarm = 9
+}
+
+while true do
+
+    print("")
+    print("=== SIGN CONTROL ===")
+    print("1 = AE2")
+    print("2 = Reactor")
+    print("3 = Autocraft")
+    print("4 = ALL")
+
+    write("เลือกป้าย: ")
+    local choice = read()
+
+    write("ข้อความ: ")
+    local message = read()
+
+    if choice == "1" then
+
+        rednet.send(
+            signs.ae2,
+            message,
+            "sign_network"
+        )
+
+    elseif choice == "2" then
+
+        rednet.send(
+            signs.reactor,
+            message,
+            "sign_network"
+        )
+
+    elseif choice == "3" then
+
+        rednet.send(
+            signs.autocraft,
+            message,
+            "sign_network"
+        )
+
+    elseif choice == "4" then
+
+        rednet.broadcast(
+            message,
+            "sign_network"
+        )
+
+    end
+end
