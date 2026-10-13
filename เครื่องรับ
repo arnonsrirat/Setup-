@@ -11,13 +11,15 @@ end
 
 rednet.open(peripheral.getName(modem))
 
-monitor.setTextScale(0.5)
+-- ขนาดตัวอักษร
+monitor.setTextScale(1)
 
--- ข้อความเริ่มต้นก่อนเครื่องกลางส่งมา
+-- ข้อความเริ่มต้น
 local line1 = "WAITING"
 local line2 = "FOR SERVER"
 local line3 = "[ OFFLINE ]"
 
+-- สีอนิเมชัน
 local animColors = {
     colors.cyan,
     colors.lightBlue,
@@ -27,12 +29,14 @@ local animColors = {
 
 local frame = 1
 
+-- ฟังก์ชันจัดข้อความให้อยู่กึ่งกลาง
 local function center(text, y, color)
     local w, h = monitor.getSize()
 
-    monitor.setTextColor(color)
+    monitor.setTextColor(color or colors.white)
 
     local x = math.floor((w - #text) / 2) + 1
+
     if x < 1 then
         x = 1
     end
@@ -41,6 +45,7 @@ local function center(text, y, color)
     monitor.write(text)
 end
 
+-- ฟังก์ชันวาดหน้าจอ
 local function drawScreen()
     local w, h = monitor.getSize()
 
@@ -52,18 +57,20 @@ local function drawScreen()
     monitor.setCursorPos(1, 1)
     monitor.write(string.rep("=", w))
 
-    -- 3 บรรทัดหลัก
+    -- ตำแหน่งกลางจอ
     local middle = math.floor(h / 2)
 
+    -- 3 บรรทัด
     center(line1, middle - 1, animColors[frame])
     center(line2, middle, colors.white)
-    center(line3, middle + 2, colors.lime)
+    center(line3, middle + 1, colors.lime)
 
     -- ขอบล่าง
     monitor.setTextColor(animColors[frame])
     monitor.setCursorPos(1, h)
     monitor.write(string.rep("=", w))
 
+    -- เปลี่ยนสีอนิเมชัน
     frame = frame + 1
 
     if frame > #animColors then
@@ -71,18 +78,23 @@ local function drawScreen()
     end
 end
 
-while true do
-    drawScreen()
+-- วาดครั้งแรก
+drawScreen()
 
-    local timer = os.startTimer(0.25)
+-- Loop หลัก
+while true do
+    local timer = os.startTimer(0.3)
 
     while true do
         local event, p1, p2, p3 = os.pullEvent()
 
+        -- อัปเดตอนิเมชัน
         if event == "timer" and p1 == timer then
+            drawScreen()
             break
         end
 
+        -- รับข้อความจากเครื่องกลาง
         if event == "rednet_message" then
             local sender = p1
             local message = p2
