@@ -1,0 +1,105 @@
+local monitor = peripheral.find("monitor")
+local modem = peripheral.find("modem")
+
+if not monitor then
+    error("Monitor not found")
+end
+
+if not modem then
+    error("Modem not found")
+end
+
+rednet.open(peripheral.getName(modem))
+
+monitor.setTextScale(0.5)
+
+local animColors = {
+    colors.cyan,
+    colors.lightBlue,
+    colors.purple,
+    colors.magenta
+}
+
+local frame = 1
+local blink = true
+
+local function center(text, y, color)
+    local w, h = monitor.getSize()
+
+    monitor.setTextColor(color)
+
+    local x = math.floor((w - #text) / 2) + 1
+    if x < 1 then x = 1 end
+
+    monitor.setCursorPos(x, y)
+    monitor.write(text)
+end
+
+local function drawQuantum()
+    local w, h = monitor.getSize()
+
+    monitor.setBackgroundColor(colors.black)
+    monitor.clear()
+
+    monitor.setTextColor(animColors[frame])
+    monitor.setCursorPos(1,1)
+    monitor.write(string.rep("=", w))
+
+    center(
+        "THE QUANTUM",
+        math.floor(h/2) - 1,
+        animColors[frame]
+    )
+
+    center(
+        "COMPUTER",
+        math.floor(h/2),
+        colors.white
+    )
+
+    if blink then
+        center(
+            "[ ONLINE ]",
+            math.floor(h/2) + 2,
+            colors.lime
+        )
+    end
+
+    monitor.setTextColor(animColors[frame])
+    monitor.setCursorPos(1,h)
+    monitor.write(string.rep("=", w))
+
+    frame = frame + 1
+
+    if frame > #animColors then
+        frame = 1
+    end
+
+    blink = not blink
+end
+
+while true do
+    drawQuantum()
+
+    local timer = os.startTimer(0.35)
+
+    while true do
+        local event, a, b, c = os.pullEvent()
+
+        if event == "timer" and a == timer then
+            break
+        end
+
+        if event == "rednet_message" then
+            local sender = a
+            local message = b
+            local protocol = c
+
+            if protocol == "sign_network" then
+                if message == "quantum" then
+                    drawQuantum()
+                end
+            end
+        end
+    end
+end
