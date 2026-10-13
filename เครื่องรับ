@@ -11,7 +11,7 @@ end
 
 rednet.open(peripheral.getName(modem))
 
-monitor.setTextScale(1)
+monitor.setTextScale(1.5)
 
 local mode = "text"
 
