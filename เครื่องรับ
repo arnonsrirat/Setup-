@@ -13,6 +13,11 @@ rednet.open(peripheral.getName(modem))
 
 monitor.setTextScale(0.5)
 
+-- ข้อความเริ่มต้นก่อนเครื่องกลางส่งมา
+local line1 = "WAITING"
+local line2 = "FOR SERVER"
+local line3 = "[ OFFLINE ]"
+
 local animColors = {
     colors.cyan,
     colors.lightBlue,
@@ -21,7 +26,6 @@ local animColors = {
 }
 
 local frame = 1
-local blink = true
 
 local function center(text, y, color)
     local w, h = monitor.getSize()
@@ -29,44 +33,35 @@ local function center(text, y, color)
     monitor.setTextColor(color)
 
     local x = math.floor((w - #text) / 2) + 1
-    if x < 1 then x = 1 end
+    if x < 1 then
+        x = 1
+    end
 
     monitor.setCursorPos(x, y)
     monitor.write(text)
 end
 
-local function drawQuantum()
+local function drawScreen()
     local w, h = monitor.getSize()
 
     monitor.setBackgroundColor(colors.black)
     monitor.clear()
 
+    -- ขอบบน
     monitor.setTextColor(animColors[frame])
-    monitor.setCursorPos(1,1)
+    monitor.setCursorPos(1, 1)
     monitor.write(string.rep("=", w))
 
-    center(
-        "THE QUANTUM",
-        math.floor(h/2) - 1,
-        animColors[frame]
-    )
+    -- 3 บรรทัดหลัก
+    local middle = math.floor(h / 2)
 
-    center(
-        "COMPUTER",
-        math.floor(h/2),
-        colors.white
-    )
+    center(line1, middle - 1, animColors[frame])
+    center(line2, middle, colors.white)
+    center(line3, middle + 2, colors.lime)
 
-    if blink then
-        center(
-            "[ ONLINE ]",
-            math.floor(h/2) + 2,
-            colors.lime
-        )
-    end
-
+    -- ขอบล่าง
     monitor.setTextColor(animColors[frame])
-    monitor.setCursorPos(1,h)
+    monitor.setCursorPos(1, h)
     monitor.write(string.rep("=", w))
 
     frame = frame + 1
@@ -74,31 +69,33 @@ local function drawQuantum()
     if frame > #animColors then
         frame = 1
     end
-
-    blink = not blink
 end
 
 while true do
-    drawQuantum()
+    drawScreen()
 
-    local timer = os.startTimer(0.35)
+    local timer = os.startTimer(0.25)
 
     while true do
-        local event, a, b, c = os.pullEvent()
+        local event, p1, p2, p3 = os.pullEvent()
 
-        if event == "timer" and a == timer then
+        if event == "timer" and p1 == timer then
             break
         end
 
         if event == "rednet_message" then
-            local sender = a
-            local message = b
-            local protocol = c
+            local sender = p1
+            local message = p2
+            local protocol = p3
 
-            if protocol == "sign_network" then
-                if message == "quantum" then
-                    drawQuantum()
-                end
+            if protocol == "sign_network"
+            and type(message) == "table" then
+
+                line1 = tostring(message.line1 or "")
+                line2 = tostring(message.line2 or "")
+                line3 = tostring(message.line3 or "")
+
+                drawScreen()
             end
         end
     end
