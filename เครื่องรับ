@@ -12,7 +12,7 @@ end
 rednet.open(peripheral.getName(modem))
 
 -- ขนาดตัวอักษร
-monitor.setTextScale(1)
+monitor.setTextScale(1.5)
 
 -- ข้อความเริ่มต้น
 local line1 = "WAITING"
