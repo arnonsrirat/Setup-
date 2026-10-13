@@ -1,61 +1,372 @@
 local modem = peripheral.find("modem")
 
 if not modem then
-    error("No modem found")
+    error("Modem not found")
 end
 
 rednet.open(peripheral.getName(modem))
 
-local signs = {
-    quantumcraft = 8,
-    treefarm = 9
-}
+local DATA_FILE = "signs.db"
 
-while true do
+local signs = {}
 
+local function saveSigns()
+    local file = fs.open(DATA_FILE, "w")
+    file.write(textutils.serialize(signs))
+    file.close()
+end
+
+local function loadSigns()
+    if fs.exists(DATA_FILE) then
+        local file = fs.open(DATA_FILE, "r")
+        local data = file.readAll()
+        file.close()
+
+        local loaded = textutils.unserialize(data)
+
+        if type(loaded) == "table" then
+            signs = loaded
+        end
+    end
+end
+
+local function pause()
     print("")
-    print("=== SIGN CONTROL ===")
-    print("1 = Quantum Craft")
-    print("2 = Tree Farm")
-    print("3 = ALL")
+    print("Press Enter to continue...")
+    read()
+end
 
-    write("Select sign: ")
-    local choice = read()
+local function send(id, data)
+    return rednet.send(
+        id,
+        data,
+        "sign_network"
+    )
+end
 
-    write("Message: ")
-    local message = read()
+local function listSigns()
+    print("===== SIGNS =====")
 
-    if choice == "1" then
-
-        rednet.send(
-            signs.quantumcraft,
-            message,
-            "sign_network"
-        )
-
-        print("Sent to Quantum Craft")
-
-    elseif choice == "2" then
-
-        rednet.send(
-            signs.treefarm,
-            message,
-            "sign_network"
-        )
-
-        print("Sent to Tree Farm")
-
-    elseif choice == "3" then
-
-        rednet.broadcast(
-            message,
-            "sign_network"
-        )
-
-        print("Sent to ALL")
-
-    else
-        print("Invalid option")
+    if #signs == 0 then
+        print("No signs registered")
+        return
     end
 
+    for i, sign in ipairs(signs) do
+        print(
+            i ..
+            " = " ..
+            sign.name ..
+            " [ID " ..
+            sign.id ..
+            "]"
+        )
+    end
+end
+
+local function addSign()
+    term.clear()
+    term.setCursorPos(1, 1)
+
+    print("===== ADD SIGN =====")
+    print("")
+
+    write("Sign name: ")
+    local name = read()
+
+    write("Computer ID: ")
+    local id = tonumber(read())
+
+    if name == "" then
+        print("Invalid name")
+        pause()
+        return
+    end
+
+    if not id then
+        print("Invalid Computer ID")
+        pause()
+        return
+    end
+
+    for _, sign in ipairs(signs) do
+        if sign.id == id then
+            print("That Computer ID already exists")
+            pause()
+            return
+        end
+    end
+
+    table.insert(signs, {
+        name = name,
+        id = id
+    })
+
+    saveSigns()
+
+    print("")
+    print("Sign added successfully")
+    pause()
+end
+
+local function editSign()
+    term.clear()
+    term.setCursorPos(1, 1)
+
+    listSigns()
+
+    if #signs == 0 then
+        pause()
+        return
+    end
+
+    print("")
+    write("Select sign number: ")
+
+    local index = tonumber(read())
+
+    if not index or not signs[index] then
+        print("Invalid selection")
+        pause()
+        return
+    end
+
+    local sign = signs[index]
+
+    print("")
+    print("Current name: " .. sign.name)
+    write("New name (Enter = keep): ")
+
+    local newName = read()
+
+    if newName ~= "" then
+        sign.name = newName
+    end
+
+    print("")
+    print("Current ID: " .. sign.id)
+    write("New ID (Enter = keep): ")
+
+    local newID = read()
+
+    if newID ~= "" then
+        local parsedID = tonumber(newID)
+
+        if not parsedID then
+            print("Invalid ID")
+            pause()
+            return
+        end
+
+        sign.id = parsedID
+    end
+
+    saveSigns()
+
+    print("")
+    print("Sign updated")
+    pause()
+end
+
+local function deleteSign()
+    term.clear()
+    term.setCursorPos(1, 1)
+
+    listSigns()
+
+    if #signs == 0 then
+        pause()
+        return
+    end
+
+    print("")
+    write("Select sign number to delete: ")
+
+    local index = tonumber(read())
+
+    if not index or not signs[index] then
+        print("Invalid selection")
+        pause()
+        return
+    end
+
+    local sign = signs[index]
+
+    print("")
+    print("Delete: " .. sign.name .. "?")
+    write("Type YES to confirm: ")
+
+    local confirm = read()
+
+    if confirm == "YES" then
+        table.remove(signs, index)
+        saveSigns()
+
+        print("Deleted")
+    else
+        print("Cancelled")
+    end
+
+    pause()
+end
+
+local function sendText(selected)
+    term.clear()
+    term.setCursorPos(1, 1)
+
+    print("=== " .. selected.name .. " ===")
+    print("")
+    print("TEXT MODE")
+    print("")
+
+    write("Line 1: ")
+    local l1 = read()
+
+    write("Line 2: ")
+    local l2 = read()
+
+    write("Line 3: ")
+    local l3 = read()
+
+    local ok = send(
+        selected.id,
+        {
+            mode = "text",
+            line1 = l1,
+            line2 = l2,
+            line3 = l3
+        }
+    )
+
+    print("")
+
+    if ok then
+        print("TEXT sent!")
+    else
+        print("Send failed")
+    end
+
+    pause()
+end
+
+local function sendImage(selected)
+    term.clear()
+    term.setCursorPos(1, 1)
+
+    print("=== " .. selected.name .. " ===")
+    print("")
+    print("IMAGE MODE")
+    print("")
+
+    print("Direct .nfp image URL")
+    write("URL: ")
+
+    local url = read()
+
+    local ok = send(
+        selected.id,
+        {
+            mode = "image",
+            url = url
+        }
+    )
+
+    print("")
+
+    if ok then
+        print("IMAGE sent!")
+    else
+        print("Send failed")
+    end
+
+    pause()
+end
+
+local function controlSign()
+    term.clear()
+    term.setCursorPos(1, 1)
+
+    listSigns()
+
+    if #signs == 0 then
+        print("")
+        print("Add a sign first")
+        pause()
+        return
+    end
+
+    print("")
+    write("Select sign: ")
+
+    local choice = tonumber(read())
+
+    if not choice or not signs[choice] then
+        print("Invalid selection")
+        pause()
+        return
+    end
+
+    local selected = signs[choice]
+
+    term.clear()
+    term.setCursorPos(1, 1)
+
+    print("=== " .. selected.name .. " ===")
+    print("")
+    print("1 = TEXT")
+    print("2 = IMAGE")
+    print("3 = BACK")
+    print("")
+
+    write("Mode: ")
+    local modeChoice = read()
+
+    if modeChoice == "1" then
+        sendText(selected)
+
+    elseif modeChoice == "2" then
+        sendImage(selected)
+    end
+end
+
+loadSigns()
+
+while true do
+    term.clear()
+    term.setCursorPos(1, 1)
+
+    print("===== SIGN CONTROL =====")
+    print("")
+    print("1 = Control Sign")
+    print("2 = Add Sign")
+    print("3 = Edit Sign")
+    print("4 = Delete Sign")
+    print("5 = List Signs")
+    print("6 = Reboot")
+    print("")
+
+    write("Select: ")
+    local choice = read()
+
+    if choice == "1" then
+        controlSign()
+
+    elseif choice == "2" then
+        addSign()
+
+    elseif choice == "3" then
+        editSign()
+
+    elseif choice == "4" then
+        deleteSign()
+
+    elseif choice == "5" then
+        term.clear()
+        term.setCursorPos(1, 1)
+        listSigns()
+        pause()
+
+    elseif choice == "6" then
+        os.reboot()
+    end
 end
