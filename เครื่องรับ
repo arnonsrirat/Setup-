@@ -11,15 +11,14 @@ end
 
 rednet.open(peripheral.getName(modem))
 
--- ขนาดตัวอักษร
-monitor.setTextScale(1.5)
+monitor.setTextScale(1)
 
--- ข้อความเริ่มต้น
+local mode = "text"
+
 local line1 = "WAITING"
 local line2 = "FOR SERVER"
 local line3 = "[ OFFLINE ]"
 
--- สีอนิเมชัน
 local animColors = {
     colors.cyan,
     colors.lightBlue,
@@ -29,72 +28,98 @@ local animColors = {
 
 local frame = 1
 
--- ฟังก์ชันจัดข้อความให้อยู่กึ่งกลาง
 local function center(text, y, color)
     local w, h = monitor.getSize()
 
     monitor.setTextColor(color or colors.white)
 
     local x = math.floor((w - #text) / 2) + 1
-
-    if x < 1 then
-        x = 1
-    end
+    if x < 1 then x = 1 end
 
     monitor.setCursorPos(x, y)
     monitor.write(text)
 end
 
--- ฟังก์ชันวาดหน้าจอ
-local function drawScreen()
+local function drawText()
     local w, h = monitor.getSize()
 
     monitor.setBackgroundColor(colors.black)
     monitor.clear()
 
-    -- ขอบบน
     monitor.setTextColor(animColors[frame])
     monitor.setCursorPos(1, 1)
     monitor.write(string.rep("=", w))
 
-    -- ตำแหน่งกลางจอ
     local middle = math.floor(h / 2)
 
-    -- 3 บรรทัด
     center(line1, middle - 1, animColors[frame])
     center(line2, middle, colors.white)
     center(line3, middle + 1, colors.lime)
 
-    -- ขอบล่าง
     monitor.setTextColor(animColors[frame])
     monitor.setCursorPos(1, h)
     monitor.write(string.rep("=", w))
 
-    -- เปลี่ยนสีอนิเมชัน
     frame = frame + 1
-
     if frame > #animColors then
         frame = 1
     end
 end
 
--- วาดครั้งแรก
-drawScreen()
+local function showImage(url)
+    monitor.setBackgroundColor(colors.black)
+    monitor.clear()
 
--- Loop หลัก
+    local response = http.get(url)
+
+    if not response then
+        center("MEDIA ERROR", 2, colors.red)
+        center("DOWNLOAD FAILED", 3, colors.white)
+        return
+    end
+
+    local data = response.readAll()
+    response.close()
+
+    local path = "/tmp_screen.nfp"
+
+    local file = fs.open(path, "w")
+    file.write(data)
+    file.close()
+
+    local image = paintutils.loadImage(path)
+
+    if not image then
+        monitor.clear()
+        center("INVALID IMAGE", 2, colors.red)
+        return
+    end
+
+    local old = term.redirect(monitor)
+
+    monitor.setBackgroundColor(colors.black)
+    monitor.clear()
+
+    paintutils.drawImage(image, 1, 1)
+
+    term.redirect(old)
+end
+
 while true do
+
+    if mode == "text" then
+        drawText()
+    end
+
     local timer = os.startTimer(0.3)
 
     while true do
         local event, p1, p2, p3 = os.pullEvent()
 
-        -- อัปเดตอนิเมชัน
         if event == "timer" and p1 == timer then
-            drawScreen()
             break
         end
 
-        -- รับข้อความจากเครื่องกลาง
         if event == "rednet_message" then
             local sender = p1
             local message = p2
@@ -103,11 +128,23 @@ while true do
             if protocol == "sign_network"
             and type(message) == "table" then
 
-                line1 = tostring(message.line1 or "")
-                line2 = tostring(message.line2 or "")
-                line3 = tostring(message.line3 or "")
+                if message.mode == "text" then
 
-                drawScreen()
+                    mode = "text"
+
+                    line1 = tostring(message.line1 or "")
+                    line2 = tostring(message.line2 or "")
+                    line3 = tostring(message.line3 or "")
+
+                    drawText()
+
+                elseif message.mode == "image" then
+
+                    mode = "image"
+
+                    showImage(message.url)
+
+                end
             end
         end
     end
